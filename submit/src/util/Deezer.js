@@ -5,9 +5,20 @@ const app_name = 'jammming';
 const redirect_uri = 'http://jpventerjammming.surge.sh';
 const perms = 'basic_access,manage_library,delete_library,offline_access';
 const deezerUrl = 'https://cors-anywhere.herokuapp.com/http://api.deezer.com/';
-let userId;
 let accessToken;
+let userId;
 let expires;
+let newPlayListId;
+
+function appInit(){
+    console.log('appinit');
+    Deezer.getAccessToken();    
+
+    if(accessToken){
+        Deezer.getUserID();
+
+    }
+}
 
 
 const Deezer = {
@@ -54,21 +65,21 @@ const Deezer = {
     savePlaylist(plName, plTracks){
         if(( plName !== "") || (plName !== undefined) && (plTracks !== undefined) || (plTracks.length !== 0) ){
             let _accessToken = Deezer.getAccessToken();
-            console.log('sp' + _accessToken);
+            console.log('sp ' + _accessToken);
             let _userId = Deezer.getUserID();
-           
+           console.log('un ' + _userId);
             // create  a playList
-           let newPlayListId;
-
+           
            //check the playListName does not already exist, if yes return id, if no create
            fetch(deezerUrl + 'user/'+ _userId + '/playlists/' + '&access_token=' + accessToken).then(response => response.json() ).then(
                data => {
-                   
+                   console.log('fetch1');
                     if(data.length > 0 ){                        
                         //use some to test for first truthy, return boolean
                        for (var i=0; i<= data.length; i++){
                            if(data[i].title === plName){
-                            newPlayListId = data[i].id;   
+                            newPlayListId = data[i].id;
+                            console.log('npid '+newPlayListId);
                             break;
                            }
                        }                   
@@ -76,26 +87,30 @@ const Deezer = {
 
                     return data;                    
                }
-           )
+           ).then( () => {
+                 if(newPlayListId === undefined){
+                    fetch(deezerUrl + 'user/'+ _userId + '/playlists?&request_method=POST' + '&access_token=' + accessToken + '&title=' + plName).then( response => {
+                        return response.json();
+                    }).then(data => {
+                        console.log('fetch2');
+                        newPlayListId = data.id;
+                        console.log('npid2 '+newPlayListId);
+                        return data.id;
+                    }).then( () => {
+                
+                //add tracks to the playlist
+                    let trackIdsAsString = plTracks.join();
+                    console.log('tid 3' +trackIdsAsString);
+                     console.log('plid 3' +newPlayListId);
 
-           
-           if(!newPlayListId){
-            fetch(deezerUrl + 'user/'+ _userId + '/playlists/' + '&access_token=' + accessToken + 'request_method=POST&title=' + plName).then( response => {
-                return response.json();
-            }).then(data => {
-                newPlayListId = data.id;
-                return data.id;
-            });
-           }
-
-           //add tracks to the playlist
-           let trackIdsAsString = plTracks.join();
-           console.log(trackIdsAsString);
-
-           fetch(deezerUrl + '/playlist/'+ newPlayListId + '/tracks/' + '&access_token=' + accessToken + 'request_method=POST&songs=' + trackIdsAsString).then( response => {
-               return response.json();
-           }).then(data => {
-               return data;
+                    fetch(deezerUrl + 'playlist/'+ newPlayListId + '/tracks?&access_token=' + accessToken + '&request_method=POST&songs=' + trackIdsAsString).then( response => {
+                        return response.json();
+                    }).then(data => {
+                         console.log('fetch3');
+                        return data;
+                    });
+                });
+                }
            });
             
         }
@@ -108,10 +123,9 @@ const Deezer = {
             }).then( data => {
                 if(data.length === 0){
                     return undefined;
-                }else{                   
-                    userId = data.id;
-                    console.log(userId);
-                    return data;
+                }else{
+                   userId = data.id;                   
+                   return userId;
                 }
             });
         }else{
@@ -121,5 +135,14 @@ const Deezer = {
     }
 }
 
+appInit();
 
 export default Deezer;
+
+
+
+//https://api.deezer.com/user/1256380224/playlists?output=jsonp&request_method=POST&title=Hello%20JP&output=jsonp&access_token=fro8yPT4Ru0TzJjebGF298lcfyhbk9vb0D4cSfRi8HVXc02jneY
+
+//https://api.deezer.com/user/1256380224/playlists/&access_token=frogZOQL5cVOPvMWG8qJdxfsw2exPEWzZyXxlwiZ2APMwYof9Srequest_method=POST&title=JP%20test%20Playlist
+
+//https://api.deezer.com//playlist/undefined/tracks?&access_token=frogZOQL5cVOPvMWG8qJdxfsw2exPEWzZyXxlwiZ2APMwYof9Srequest_method=POST&songs=17605368,17608734,17608160
